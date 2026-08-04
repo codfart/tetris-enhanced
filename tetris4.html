@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Ultra Pog Animated Tetris</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Micro+5&display=swap');
+
+    body {
+      margin: 0;
+      background: #10141a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
+      font-family: 'Micro 5', sans-serif;
+    }
+
+    canvas {
+      image-rendering: pixelated;
+      background: rgba(50, 55, 60, 0.5);
+      outline: 4px solid #fff;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5), inset 0 0 50px 20px rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      z-index: 1;
+    }
+
+    #ui {
+      position: absolute;
+      top: 50vh;
+      left: calc(50vw + 300px);
+      transform: translate(-50%, -50%);
+      background: rgba(50, 55, 60, 0.5);
+      padding: 16px;
+      color: #fff;
+      z-index: 10;
+      width: 150px;
+      outline: 3px solid #aaa;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5), inset 0 0 50px 20px rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+    }
+
+    .ui-line {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .ui-title {
+      font-size: 32px;
+      color: #aaa;
+    }
+
+    .ui-value {
+      font-size: 32px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="ui">
+    <div class="ui-line"><span class="ui-title">Score</span><span id="score" class="ui-value">0</span></div>
+    <div class="ui-line"><span class="ui-title">Time</span><span id="time" class="ui-value">00:00</span></div>
+    <div class="ui-line"><span class="ui-title">Lines</span><span id="lines" class="ui-value">0</span></div>
+  </div>
+  <canvas id="game" width="320" height="640"></canvas>
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    const COLS = 10, ROWS = 20, BLOCK = 32;
+    const COLORS = [null, '#ff3838', '#ffb8b8', '#38ff83', '#83ffb8', '#3838ff', '#b838ff', '#ffb838'];
+
+    let score = 0, linesCleared = 0, startTime = Date.now(), gameOver = false;
+
+    const scoreEl = document.getElementById('score');
+    const linesEl = document.getElementById('lines');
+    const timeEl = document.getElementById('time');
+
+    let deathAnimation = false;
+    let deathProgress = 0;
+    let deathParticles = [];
+    let shake = 0;
+
+    function createMatrix(w, h) {
+      const m = [];
+      while (h--) m.push(new Array(w).fill(0));
+      return m;
+    }
+
+    function collide(arena, player) {
+      const [m, o] = [player.matrix, player.pos];
+      for (let y = 0; y < m.length; y++) {
+        for (let x = 0; x < m[y].length; x++) {
+          if (m[y][x] && (arena[y + o.y] && arena[y + o.y][x + o.x]) !== 0) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function merge(arena, player) {
+      player.matrix.forEach((row, y) => {
+        row.forEach((value, x) => {
+          if (value) arena[y + player.pos.y][x + player.pos.x] = value;
+        });
+      });
+    }
+
+    function rotate(matrix, dir) {
+      for (let y = 0; y < matrix.length; ++y) {
+        for (let x = 0; x < y; ++x) {
+          [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
+        }
+      }
+      if (dir > 0) matrix.forEach(r => r.reverse());
+      else matrix.reverse();
+    }
+
+    function createPiece(type) {
+      switch (type) {
+        case 'T': return [[0, 1, 0], [1, 1, 1], [0, 0, 0]];
+        case 'O': return [[2, 2], [2, 2]];
+        case 'L': return [[0, 0, 3], [3, 3, 3], [0, 0, 0]];
+        case 'J': return [[4, 0, 0], [4, 4, 4], [0, 0, 0]];
+        case 'I': return [[0, 5, 0, 0], [0, 5, 0, 0], [0, 5, 0, 0], [0, 5, 0, 0]];
+        case 'S': return [[0, 6, 6], [6, 6, 0], [0, 0, 0]];
+        case 'Z': return [[7, 7, 0], [0, 7, 7], [0, 0, 0]];
+      }
+    }
+
+    const arena = createMatrix(COLS, ROWS);
+    const player = {
+      pos: { x: 0, y: 0 },
+      matrix: null,
+      easingPos: { x: 0, y: 0 },
+      ghostY: 0,
+      easingGhostY: 0,
+      hardDropTargetY: null
+    };
+
+    function drawBlock(x, y, color) {
+      const px = x * BLOCK;
+      const py = y * BLOCK;
+
+      ctx.fillStyle = color;
+      ctx.fillRect(px, py, BLOCK, BLOCK);
+
+      // top highlight
+      ctx.strokeStyle = "rgba(255,255,255,0.2)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(px + 1, py + BLOCK - 1);
+      ctx.lineTo(px + 1, py + 1);
+      ctx.lineTo(px + BLOCK - 1, py + 1);
+      ctx.stroke();
+
+      // bottom shadow
+      ctx.strokeStyle = "rgba(0,0,0,0.2)";
+      ctx.beginPath();
+      ctx.moveTo(px + BLOCK - 1, py + 1);
+      ctx.lineTo(px + BLOCK - 1, py + BLOCK - 1);
+      ctx.lineTo(px + 1, py + BLOCK - 1);
+      ctx.stroke();
+
+      // centre shine
+      ctx.fillStyle = "rgba(255,255,255,.08)";
+      ctx.fillRect(px + 4, py + 4, BLOCK - 8, BLOCK - 8);
+    }
+
+    function drawMatrix(matrix, offset) {
+      matrix.forEach((row, y) => {
+        row.forEach((value, x) => {
+          if (value) drawBlock(x + offset.x, y + offset.y, COLORS[value]);
+        });
+      });
+    }
+
+    // subtle background grid
+    function drawGrid() {
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= COLS; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x * BLOCK, 0);
+        ctx.lineTo(x * BLOCK, ROWS * BLOCK);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= ROWS; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y * BLOCK);
+        ctx.lineTo(COLS * BLOCK, y * BLOCK);
+        ctx.stroke();
+      }
+    }
+
+    let particles = [];
+    function spawnParticles(y) {
+      for (let x = 0; x < COLS; x++) {
+        if (arena[y][x] !== 0) {
+          for (let i = 0; i < 6; i++) {
+            particles.push({
+              x: x * BLOCK + BLOCK / 2,
+              y: y * BLOCK + BLOCK / 2,
+              vx: (Math.random() - 0.5) * 8,
+              vy: (Math.random() - 2) * 5,
+              alpha: 1,
+              color: COLORS[arena[y][x]]
+            });
+          }
+        }
+      }
+    }
+
+    function updateParticles() {
+      particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.2;
+        p.alpha -= 0.04;
+      });
+      particles = particles.filter(p => p.alpha > 0);
+      particles.forEach(p => {
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+        ctx.globalAlpha = 1;
+      });
+    }
+
+    function sweep() {
+      outer: for (let y = arena.length - 1; y >= 0; --y) {
+        if (arena[y].every(v => v !== 0)) {
+          spawnParticles(y);
+          arena.splice(y, 1);
+          arena.unshift(new Array(COLS).fill(0));
+          linesCleared++;
+          score += 100;
+          y++;
+        }
+      }
+    }
+
+    function playerDrop() {
+      if (gameOver || player.hardDropTargetY !== null) return;
+      player.pos.y++;
+      if (collide(arena, player)) {
+        player.pos.y--;
+        merge(arena, player);
+        resetPlayer();
+        sweep();
+        checkDeath();
+      }
+    }
+
+    function hardDrop() {
+      if (gameOver || player.hardDropTargetY !== null) return;
+      // set target for animated drop
+      updateGhostY();
+      player.hardDropTargetY = player.ghostY;
+    }
+
+    function animateHardDrop() {
+      if (player.hardDropTargetY === null) return false;
+      // ease towards target
+      let dy = player.hardDropTargetY - player.pos.y;
+      if (Math.abs(dy) < 0.05) {
+        player.pos.y = player.hardDropTargetY;
+        merge(arena, player);
+        resetPlayer();
+        sweep();
+        checkDeath();
+        player.hardDropTargetY = null;
+        return false;
+      } else {
+        player.pos.y += dy * 0.3;
+        return true;
+      }
+    }
+
+    function playerMove(dir) {
+      player.pos.x += dir;
+      if (collide(arena, player)) player.pos.x -= dir;
+    }
+
+    function playerRotate(dir) {
+      const oldMatrix = player.matrix.map(r => [...r]);
+      rotate(player.matrix, dir);
+      if (collide(arena, player)) player.matrix = oldMatrix;
+    }
+
+    function resetPlayer() {
+      const pieces = 'TJLOSZI';
+      player.matrix = createPiece(pieces[Math.floor(Math.random() * pieces.length)]);
+      player.pos.y = 0;
+      player.pos.x = Math.floor(COLS / 2) - Math.floor(player.matrix[0].length / 2);
+      player.easingPos = { ...player.pos };
+      updateGhostY();
+      player.easingGhostY = player.ghostY;
+      checkDeath();
+    }
+
+    function updateGhostY() {
+      let gy = player.pos.y;
+      while (!collide(arena, { ...player, pos: { x: player.pos.x, y: gy + 1 } })) gy++;
+      player.ghostY = gy;
+    }
+
+    function drawGhost() {
+      player.easingGhostY += (player.ghostY - player.easingGhostY) * 0.2;
+      ctx.globalAlpha = 0.2;
+      drawMatrix(player.matrix, { x: player.easingPos.x, y: player.easingGhostY });
+      ctx.globalAlpha = 1;
+    }
+
+    function checkDeath() {
+      if (collide(arena, player)) {
+        gameOver = true;
+        deathAnimation = true;
+
+        // explode every existing block
+        shake = 20;
+
+        for (let y = 0; y < ROWS; y++) {
+          for (let x = 0; x < COLS; x++) {
+            if (arena[y][x]) {
+              for (let i = 0; i < 10; i++) {
+                deathParticles.push({
+                  x: x * BLOCK + BLOCK / 2,
+                  y: y * BLOCK + BLOCK / 2,
+                  vx: (Math.random() - 0.5) * 14,
+                  vy: (Math.random() - 0.5) * 14,
+                  rot: Math.random() * Math.PI * 2,
+                  vr: (Math.random() - 0.5) * 0.4,
+                  size: BLOCK * 0.7,
+                  alpha: 1,
+                  color: COLORS[arena[y][x]]
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    function updateDeathAnimation() {
+
+      deathProgress += 0.015;
+
+      ctx.fillStyle = "rgba(0,0,0,0.08)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      deathParticles.forEach(p => {
+
+        p.x += p.vx;
+        p.y += p.vy;
+
+        p.vy += 0.35;
+        p.vx *= 0.985;
+
+        p.rot += p.vr;
+
+        p.alpha -= 0.012;
+
+        ctx.save();
+
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+
+        ctx.globalAlpha = Math.max(0, p.alpha);
+
+        ctx.fillStyle = p.color;
+        ctx.fillRect(
+          -p.size / 2,
+          -p.size / 2,
+          p.size,
+          p.size
+        );
+
+        ctx.restore();
+        ctx.globalAlpha = 1;
+      });
+
+      deathParticles = deathParticles.filter(p => p.alpha > 0);
+
+      // dark fade
+      ctx.fillStyle = `rgba(0,0,0,${Math.min(deathProgress * 0.6, 0.6)})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // animated text
+      const scale = 1 + Math.sin(deathProgress * 8) * 0.05;
+
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.scale(scale, scale);
+
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#fff";
+      ctx.font = "72px 'Micro 5'";
+      ctx.fillText("GAME", 0, -25);
+      ctx.fillText("OVER", 0, 45);
+
+      ctx.restore();
+
+      //if (deathParticles.length === 0 && deathProgress > 1.8) {
+      //  alert("GAME OVER");
+      //}
+    }
+
+    function updateUI() {
+      scoreEl.textContent = score;
+      linesEl.textContent = linesCleared;
+      let elapsed = Math.floor((Date.now() - startTime) / 1000);
+      let m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+      let s = String(elapsed % 60).padStart(2, '0');
+      timeEl.textContent = `${m}:${s}`;
+    }
+
+    let lastTime = 0;
+    function update(time = 0) {
+      const delta = time - lastTime;
+      lastTime = time;
+
+      ctx.save();
+
+      if (shake > 0) {
+        canvas.style.transform =
+          `translate(${(Math.random() - 0.5) * shake}px,
+                        ${(Math.random() - 0.5) * shake}px)`;
+
+        shake *= 0.92;
+      } else {
+        canvas.style.transform = "";
+      }
+
+      if (gameOver && deathAnimation) {
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        drawGrid();
+        drawMatrix(arena, { x: 0, y: 0 });
+
+        updateDeathAnimation();
+
+        requestAnimationFrame(update);
+        return;
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+
+      // easing for normal movement
+      player.easingPos.x += (player.pos.x - player.easingPos.x) * 0.2;
+      player.easingPos.y += (player.pos.y - player.easingPos.y) * 0.2;
+
+      updateGhostY();
+      drawGhost();
+      drawMatrix(arena, { x: 0, y: 0 });
+      drawMatrix(player.matrix, player.easingPos);
+      updateParticles();
+      updateUI();
+
+      // animate hard drop
+      animateHardDrop();
+
+      requestAnimationFrame(update);
+
+      ctx.restore();
+    }
+
+    document.addEventListener('keydown', e => {
+      if (gameOver) return;
+      if (e.key === 'ArrowLeft') playerMove(-1);
+      if (e.key === 'ArrowRight') playerMove(1);
+      if (e.key === 'ArrowDown') playerDrop();
+      if (e.key === 'ArrowUp') playerRotate(1);
+      if (e.key === ' ') hardDrop();
+    });
+
+    resetPlayer();
+    update();
+    setInterval(() => { if (!player.hardDropTargetY) playerDrop(); }, 800);
+  </script>
+</body>
+
+</html>
