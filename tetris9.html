@@ -253,9 +253,15 @@
     // create the generator once
     let tgm3 = tgm3Randomizer();
 
+    let semicolonHeld = false;
+    let twoByTwoMode = false;
 
     // get the next actual TGM3 piece
     function randomPiece() {
+      if (twoByTwoMode) {
+        return createPiece("I");
+      }
+
       return createPiece(tgm3.next().value);
     }
 
@@ -279,7 +285,8 @@
         place: ["line0.wav"],
         lineClear: ["line0.wav"],
         explode: ["line0.wav"],
-        gameOver: ["line0.wav"]
+        gameOver: ["line0.wav"],
+        clear: ["line0.wav"]
       }
       : {
         drop: [
@@ -306,6 +313,10 @@
 
         gameOver: [
           "game_over.wav"
+        ],
+
+        clear: [
+          "clear.wav"
         ]
       };
 
@@ -1293,6 +1304,9 @@
     }
 
     function restartGame() {
+      // holding ; while restarting enables 2x2-only mode
+      twoByTwoMode = semicolonHeld;
+
       // clear board
       for (let y = 0; y < ROWS; y++) {
         arena[y].fill(0);
@@ -1326,9 +1340,10 @@
       // reset TGM3 randomizer
       tgm3 = tgm3Randomizer();
 
-      nextPiece = createPiece(
-        tgm3.next().value
-      );
+      // first piece of the new game
+      nextPiece = twoByTwoMode
+        ? createPiece("I")
+        : createPiece(tgm3.next().value);
 
       pauseBtn.textContent = "PAUSE";
 
@@ -1338,6 +1353,9 @@
     }
 
     document.addEventListener("keydown", e => {
+      if (e.code === "Semicolon") {
+        semicolonHeld = true;
+      }
 
       // restart after game over
       if (gameOver) {
@@ -1374,6 +1392,12 @@
 
       if (e.code === "Space") {
         hardDrop();
+      }
+    });
+
+    document.addEventListener("keyup", e => {
+      if (e.code === "Semicolon") {
+        semicolonHeld = false;
       }
     });
 
