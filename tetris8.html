@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Ultra Pog Animated Tetris</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Micro+5&display=swap');
+
+    body {
+      margin: 0;
+      background: #10141a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
+      font-family: 'Micro 5', sans-serif;
+    }
+
+    canvas {
+      image-rendering: pixelated;
+      background: rgba(50, 55, 60, 0.5);
+      outline: 4px solid #fff;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5), inset 0 0 50px 20px rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      z-index: 1;
+    }
+
+    #ui {
+      position: absolute;
+      top: 50vh;
+      left: calc(50vw + 300px);
+      transform: translate(-50%, -50%);
+      background: rgba(50, 55, 60, 0.5);
+      padding: 0 16px;
+      color: #fff;
+      z-index: 10;
+      width: 150px;
+      outline: 3px solid #aaa;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5), inset 0 0 50px 20px rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .ui-line {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      line-height: 1.2rem;
+      font-size: 20px;
+      width: 100%;
+    }
+
+    .ui-title {
+      font-size: 32px;
+      color: #aaa;
+      line-height: 1.7rem;
+      text-align: center;
+    }
+
+    .ui-value {
+      font-size: 32px;
+      font-weight: bold;
+      line-height: 1.7rem;
+      text-align: center;
+    }
+
+    #next {
+      margin-top: 8px;
+      padding: 8px;
+      border-radius: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="ui">
+    <div style="margin: 16px 0 20px 0">
+      <div class="ui-value">NEXT UP:</div>
+      <canvas id="next" width="96" height="96"></canvas>
+    </div>
+    <div class="ui-line">
+      <span class="ui-title">SCORE:</span>
+      <span id="score" class="ui-value">0</span>
+    </div>
+    <div class="ui-line">
+      <span class="ui-title">TIME:</span>
+      <span id="time" class="ui-value">00:00</span>
+    </div>
+    <div class="ui-line">
+      <span class="ui-title">LINES:</span>
+      <span id="lines" class="ui-value">0</span>
+    </div>
+  </div>
+  <canvas id="game" width="320" height="640"></canvas>
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    const COLS = 10, ROWS = 20, BLOCK = 32;
+    const COLORS = [null, '#ff3838', '#ffb8b8', '#38ff83', '#83ffb8', '#3838ff', '#b838ff', '#ffb838'];
+
+    let score = 0, linesCleared = 0, startTime = Date.now(), gameOver = false;
+
+    const scoreEl = document.getElementById('score');
+    const linesEl = document.getElementById('lines');
+    const timeEl = document.getElementById('time');
+    const nextCanvas = document.getElementById("next");
+    const nextCtx = nextCanvas.getContext("2d");
+
+    let deathAnimation = false;
+    let deathProgress = 0;
+    let deathParticles = [];
+    let shake = 0;
+
+    // =========================
+    // TGM3 RANDOMIZER
+    // =========================
+
+    function* tgm3Randomizer() {
+      const pieces = ["I", "J", "L", "O", "S", "T", "Z"];
+
+      // 5 copies of each piece = 35-piece pool
+      const pool = [
+        ...pieces,
+        ...pieces,
+        ...pieces,
+        ...pieces,
+        ...pieces
+      ];
+
+      // TGM3 first-piece restriction:
+      // I, J, L or T only
+      const firstPiece =
+        ["I", "J", "L", "T"][Math.floor(Math.random() * 4)];
+
+      yield firstPiece;
+
+      // Initial history
+      const history = ["S", "Z", "S", firstPiece];
+
+      // Piece order, oldest -> newest.
+      // order[0] is the most droughted piece.
+      const order = [];
+
+      while (true) {
+        let piece;
+        let index;
+
+        // 6 rolls
+        for (let roll = 0; roll < 6; roll++) {
+          index = Math.floor(Math.random() * 35);
+          piece = pool[index];
+
+          // Accept if the piece isn't in history,
+          // or if this is the final roll.
+          if (!history.includes(piece) || roll === 5) {
+            break;
+          }
+
+          // Replace rejected piece with the most droughted piece.
+          if (order.length) {
+            pool[index] = order[0];
+          }
+        }
+
+        // Remove the selected piece from the drought order
+        // if it already exists.
+        const oldIndex = order.indexOf(piece);
+
+        if (oldIndex !== -1) {
+          order.splice(oldIndex, 1);
+        }
+
+        // It has now been dealt, so put it at the newest end.
+        order.push(piece);
+
+        // Replace its pool slot with the most droughted piece.
+        pool[index] = order[0];
+
+        // Update history
+        history.shift();
+        history[3] = piece;
+
+        yield piece;
+      }
+    }
+
+
+    // create the generator once
+    const tgm3 = tgm3Randomizer();
+
+
+    // get the next actual TGM3 piece
+    function randomPiece() {
+      return createPiece(tgm3.next().value);
+    }
+
+
+    // generate first "next" piece
+    let nextPiece = randomPiece();
+
+    // =========================
+    // SOUND EFFECTS
+    // =========================
+
+    const SFX_PATH = "./sfx/";
+
+    const SFX = {
+      drop: [
+        "drop.wav"
+      ],
+
+      place: [
+        "place.wav"
+      ],
+
+      line0: [
+        "line0.wav"
+      ],
+
+      line1: [
+        "line1.wav"
+      ],
+
+      line2: [
+        "line2.wav"
+      ],
+
+      line3: [
+        "line3.wav"
+      ],
+
+      line4: [
+        "line4.wav"
+      ],
+
+      explode: [
+        "explode1.wav",
+        "explode2.wav",
+        "explode3.wav",
+        "explode4.wav"
+      ],
+
+      gameOver: [
+        "game_over.wav"
+      ]
+    };
+
+    const lastSFX = {};
+
+    function playSFX(type, volume = 1) {
+      const sounds = SFX[type];
+
+      if (!sounds || sounds.length === 0) return;
+
+      let index;
+
+      // avoid repeating the exact same sound when there are multiple choices
+      do {
+        index = Math.floor(Math.random() * sounds.length);
+      } while (sounds.length > 1 && index === lastSFX[type]);
+
+      lastSFX[type] = index;
+
+      const audio = new Audio(SFX_PATH + sounds[index]);
+
+      audio.volume = Math.max(0, Math.min(1, volume));
+
+      audio.play().catch(() => {
+        // browser may block audio until the user interacts with the page
+      });
+    }
+
+    let nextAnim = 1;
+    let nextOutAnim = 0;
+    let nextAnimatingOut = false;
+    let nextPieceDelay = 0;
+
+    function createMatrix(w, h) {
+      const m = [];
+      while (h--) m.push(new Array(w).fill(0));
+      return m;
+    }
+
+    function drawBlockToContext(ctx, x, y, size, color) {
+
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, size, size);
+
+      ctx.strokeStyle = "rgba(255,255,255,0.2)";
+      ctx.lineWidth = 2;
+
+      ctx.beginPath();
+      ctx.moveTo(x + 1, y + size - 1);
+      ctx.lineTo(x + 1, y + 1);
+      ctx.lineTo(x + size - 1, y + 1);
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(0,0,0,0.2)";
+
+      ctx.beginPath();
+      ctx.moveTo(x + size - 1, y + 1);
+      ctx.lineTo(x + size - 1, y + size - 1);
+      ctx.lineTo(x + 1, y + size - 1);
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      ctx.fillRect(x + 3, y + 3, size - 6, size - 6);
+    }
+
+    function trimPiece(matrix) {
+
+      let minX = matrix[0].length;
+      let maxX = 0;
+      let minY = matrix.length;
+      let maxY = 0;
+
+      matrix.forEach((row, y) => {
+        row.forEach((v, x) => {
+          if (v) {
+            minX = Math.min(minX, x);
+            maxX = Math.max(maxX, x);
+            minY = Math.min(minY, y);
+            maxY = Math.max(maxY, y);
+          }
+        });
+      });
+
+      return matrix
+        .slice(minY, maxY + 1)
+        .map(row => row.slice(minX, maxX + 1));
+    }
+
+    function drawNextPiece() {
+
+      nextCtx.clearRect(
+        0,
+        0,
+        nextCanvas.width,
+        nextCanvas.height
+      );
+
+
+      // animate out
+      if (nextAnimatingOut) {
+
+        nextOutAnim += 0.15;
+
+        if (nextOutAnim >= 1) {
+          nextAnimatingOut = false;
+          nextOutAnim = 0;
+          nextAnim = 0;
+        }
+
+      }
+
+
+      // animate in
+      nextAnim += (1 - nextAnim) * 0.18;
+
+
+      const piece = trimPiece(nextPiece);
+
+      const size = 24;
+
+      const w = piece[0].length;
+      const h = piece.length;
+
+
+      const offsetX =
+        (nextCanvas.width - w * size) / 2;
+
+      const offsetY =
+        (nextCanvas.height - h * size) / 2;
+
+
+      nextCtx.save();
+
+
+      let scale;
+      let alpha;
+
+
+      if (nextAnimatingOut) {
+
+        scale = 1 - nextOutAnim * 0.4;
+        alpha = 1 - nextOutAnim;
+
+      } else {
+
+        scale = 0.8 + nextAnim * 0.2;
+        alpha = nextAnim;
+
+      }
+
+
+      nextCtx.translate(
+        nextCanvas.width / 2,
+        nextCanvas.height / 2
+      );
+
+      nextCtx.scale(scale, scale);
+
+
+      nextCtx.translate(
+        -nextCanvas.width / 2,
+        -nextCanvas.height / 2
+      );
+
+
+      nextCtx.globalAlpha = alpha;
+
+
+      piece.forEach((row, y) => {
+        row.forEach((v, x) => {
+
+          if (!v) return;
+
+          drawBlockToContext(
+            nextCtx,
+            offsetX + x * size,
+            offsetY + y * size,
+            size,
+            COLORS[v]
+          );
+
+        });
+      });
+
+
+      nextCtx.restore();
+    }
+
+    function collide(arena, player) {
+      const [m, o] = [player.matrix, player.pos];
+      for (let y = 0; y < m.length; y++) {
+        for (let x = 0; x < m[y].length; x++) {
+          if (m[y][x] && (arena[y + o.y] && arena[y + o.y][x + o.x]) !== 0) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function merge(arena, player) {
+      player.matrix.forEach((row, y) => {
+        row.forEach((value, x) => {
+          if (value) arena[y + player.pos.y][x + player.pos.x] = value;
+        });
+      });
+    }
+
+    function rotate(matrix, dir) {
+      for (let y = 0; y < matrix.length; ++y) {
+        for (let x = 0; x < y; ++x) {
+          [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
+        }
+      }
+      if (dir > 0) matrix.forEach(r => r.reverse());
+      else matrix.reverse();
+    }
+
+    function createPiece(type) {
+      switch (type) {
+        case 'T': return [[0, 1, 0], [1, 1, 1], [0, 0, 0]];
+        case 'O': return [[2, 2], [2, 2]];
+        case 'L': return [[0, 0, 3], [3, 3, 3], [0, 0, 0]];
+        case 'J': return [[4, 0, 0], [4, 4, 4], [0, 0, 0]];
+        case 'I': return [[0, 5, 0, 0], [0, 5, 0, 0], [0, 5, 0, 0], [0, 5, 0, 0]];
+        case 'S': return [[0, 6, 6], [6, 6, 0], [0, 0, 0]];
+        case 'Z': return [[7, 7, 0], [0, 7, 7], [0, 0, 0]];
+      }
+    }
+
+    const arena = createMatrix(COLS, ROWS);
+    const player = {
+      pos: { x: 0, y: 0 },
+      matrix: null,
+      easingPos: { x: 0, y: 0 },
+      ghostY: 0,
+      easingGhostY: 0,
+      hardDropTargetY: null,
+      ghostOpacity: 0,
+      ghostScale: 0.5,
+      ghostSpawnTime: 0,
+      ghostAnimating: false
+    };
+
+    function drawBlock(x, y, color) {
+      const px = x * BLOCK;
+      const py = y * BLOCK;
+
+      ctx.fillStyle = color;
+      ctx.fillRect(px, py, BLOCK, BLOCK);
+
+      // top highlight
+      ctx.strokeStyle = "rgba(255,255,255,0.2)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(px + 1, py + BLOCK - 1);
+      ctx.lineTo(px + 1, py + 1);
+      ctx.lineTo(px + BLOCK - 1, py + 1);
+      ctx.stroke();
+
+      // bottom shadow
+      ctx.strokeStyle = "rgba(0,0,0,0.2)";
+      ctx.beginPath();
+      ctx.moveTo(px + BLOCK - 1, py + 1);
+      ctx.lineTo(px + BLOCK - 1, py + BLOCK - 1);
+      ctx.lineTo(px + 1, py + BLOCK - 1);
+      ctx.stroke();
+
+      // centre shine
+      ctx.fillStyle = "rgba(255,255,255,.08)";
+      ctx.fillRect(px + 4, py + 4, BLOCK - 8, BLOCK - 8);
+    }
+
+    function drawMatrix(matrix, offset) {
+      matrix.forEach((row, y) => {
+        row.forEach((value, x) => {
+          if (!value) return;
+
+          drawBlock(x + offset.x, y + offset.y, COLORS[value]);
+
+          if (clearingRows.includes(y + offset.y)) {
+            const flash = Math.sin(performance.now() * 0.06) * 0.5 + 0.5;
+
+            ctx.fillStyle = `rgba(255,255,255,${flash})`;
+            ctx.fillRect(
+              (x + offset.x) * BLOCK,
+              (y + offset.y) * BLOCK,
+              BLOCK,
+              BLOCK
+            );
+          }
+        });
+      });
+    }
+
+    // subtle background grid
+    function drawGrid() {
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= COLS; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x * BLOCK, 0);
+        ctx.lineTo(x * BLOCK, ROWS * BLOCK);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= ROWS; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y * BLOCK);
+        ctx.lineTo(COLS * BLOCK, y * BLOCK);
+        ctx.stroke();
+      }
+    }
+
+    let particles = [];
+    let clearingRows = [];
+    let clearTimer = 0;
+    function spawnParticles(y) {
+      for (let x = 0; x < COLS; x++) {
+        if (arena[y][x] !== 0) {
+          for (let i = 0; i < 20; i++) {
+            particles.push({
+              x: x * BLOCK + BLOCK / 2,
+              y: y * BLOCK + BLOCK / 2,
+              vx: (Math.random() - 0.5) * 16,
+              vy: (Math.random() - 0.5) * 14,
+              alpha: 1,
+              color: COLORS[arena[y][x]]
+            });
+          }
+        }
+      }
+    }
+
+    function updateParticles() {
+      particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.2;
+        p.alpha -= 0.04;
+      });
+      particles = particles.filter(p => p.alpha > 0);
+      particles.forEach(p => {
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x - 3, p.y - 3, 6, 6);
+        ctx.globalAlpha = 1;
+      });
+    }
+
+    function sweep() {
+      if (clearingRows.length) return;
+
+      clearingRows = [];
+
+      for (let y = arena.length - 1; y >= 0; y--) {
+        if (arena[y].every(v => v !== 0)) {
+          clearingRows.push(y);
+        }
+      }
+
+      if (!clearingRows.length) return;
+
+      clearTimer = 10;     // about 160ms @60fps
+      shake = 8;
+
+      canvas.style.transition = "transform 70ms";
+
+      canvas.animate([
+        { transform: "scale(1)" },
+        { transform: "scale(1.035)" },
+        { transform: "scale(1)" }
+      ], {
+        duration: 120,
+        easing: "ease-out"
+      });
+    }
+
+    function updateLineClear() {
+      if (!clearingRows.length) return;
+
+      clearTimer--;
+
+      if (clearTimer <= 0) {
+
+        // particles before modifying the arena
+        clearingRows.forEach(y => spawnParticles(y));
+
+        // remove all completed rows
+        const newArena = arena.filter((row, index) => !clearingRows.includes(index));
+
+        // add empty rows at the top
+        while (newArena.length < ROWS) {
+          newArena.unshift(new Array(COLS).fill(0));
+        }
+
+        // copy back into the existing arena
+        arena.length = 0;
+        newArena.forEach(row => arena.push(row));
+
+        const count = clearingRows.length;
+
+        playSFX(`line${count}`, 0.8);
+
+        linesCleared += count;
+
+        // classic tetris scoring
+        score += [0, 100, 300, 500, 800][count];
+
+        clearingRows = [];
+
+        resetPlayer();
+      }
+    }
+
+    function playerDrop() {
+      if (gameOver || player.hardDropTargetY !== null) return;
+      if (clearingRows.length) return;
+      player.pos.y++;
+      if (collide(arena, player)) {
+        player.pos.y--;
+        merge(arena, player);
+        sweep();
+        if (!clearingRows.length) {
+          playSFX("place", 0.65);
+          resetPlayer();
+        }
+      }
+    }
+
+    function hardDrop() {
+      if (gameOver || player.hardDropTargetY !== null) return;
+      // set target for animated drop
+      updateGhostY();
+      player.hardDropTargetY = player.ghostY;
+      player.easingGhostY = player.ghostY;
+      playSFX("drop", 0.7);
+    }
+
+    function animateHardDrop() {
+      if (player.hardDropTargetY === null) return false;
+      // ease towards target
+      let dy = player.hardDropTargetY - player.pos.y;
+      if (Math.abs(dy) < 0.05) {
+        player.pos.y = player.hardDropTargetY;
+        merge(arena, player);
+        sweep();
+        if (!clearingRows.length) {
+          playSFX("place", 0.65);
+          resetPlayer();
+        }
+        player.hardDropTargetY = null;
+        return false;
+      } else {
+        player.pos.y += dy * 0.3;
+        return true;
+      }
+    }
+
+    function playerMove(dir) {
+      player.pos.x += dir;
+      if (collide(arena, player)) player.pos.x -= dir;
+    }
+
+    function playerRotate(dir) {
+      const oldMatrix = player.matrix.map(r => [...r]);
+      rotate(player.matrix, dir);
+      if (collide(arena, player)) player.matrix = oldMatrix;
+    }
+
+    function resetPlayer() {
+      player.matrix = nextPiece;
+
+      nextAnimatingOut = true;
+      nextOutAnim = 0;
+
+      setTimeout(() => {
+        nextPiece = randomPiece();
+      }, 120);
+
+      player.pos.y = 0;
+      player.pos.x = Math.floor(COLS / 2) -
+        Math.floor(player.matrix[0].length / 2);
+
+      player.easingPos = { ...player.pos };
+
+      updateGhostY();
+      player.easingGhostY = player.ghostY;
+
+      player.ghostOpacity = 0;
+      player.ghostScale = 0.5;
+      player.ghostSpawnTime = performance.now();
+      player.ghostAnimating = true;
+
+      checkDeath();
+    }
+
+    function updateGhostY() {
+      let gy = player.pos.y;
+      while (!collide(arena, { ...player, pos: { x: player.pos.x, y: gy + 1 } })) gy++;
+      player.ghostY = gy;
+    }
+
+    function drawGhost() {
+
+      if (player.hardDropTargetY === null) {
+        player.easingGhostY +=
+          (player.ghostY - player.easingGhostY) * 0.2;
+      }
+
+
+      // 100ms ease-out spawn animation
+      if (player.ghostAnimating) {
+
+        let elapsed = performance.now() - player.ghostSpawnTime;
+
+        let t = Math.min(elapsed / 100, 1);
+
+        // ease out cubic
+        let ease = 1 - Math.pow(1 - t, 3);
+
+
+        player.ghostScale =
+          0.8 + (ease * 0.2);
+
+
+        player.ghostOpacity =
+          ease * 0.2;
+
+
+        if (t >= 1) {
+          player.ghostAnimating = false;
+          player.ghostScale = 1;
+          player.ghostOpacity = 0.2;
+        }
+
+      } else {
+
+        player.ghostOpacity +=
+          (0.2 - player.ghostOpacity) * 0.12;
+
+      }
+
+
+      ctx.save();
+
+
+      // scale around the piece centre
+      const centerX =
+        (player.easingPos.x + player.matrix[0].length / 2) * BLOCK;
+
+      const centerY =
+        (player.easingGhostY + player.matrix.length / 2) * BLOCK;
+
+
+      ctx.translate(centerX, centerY);
+
+      ctx.scale(
+        player.ghostScale,
+        player.ghostScale
+      );
+
+      ctx.translate(-centerX, -centerY);
+
+
+      ctx.globalAlpha = player.ghostOpacity;
+
+
+      drawMatrix(player.matrix, {
+        x: player.easingPos.x,
+        y: player.easingGhostY
+      });
+
+
+      ctx.restore();
+
+      ctx.globalAlpha = 1;
+    }
+
+    function checkDeath() {
+      if (collide(arena, player)) {
+        gameOver = true;
+        deathAnimation = true;
+
+        playSFX("gameOver", 0.9);
+        playSFX("explode", 0.8);
+
+        // explode every existing block
+        shake = 20;
+
+        for (let y = 0; y < ROWS; y++) {
+          for (let x = 0; x < COLS; x++) {
+            if (arena[y][x]) {
+              for (let i = 0; i < 10; i++) {
+                deathParticles.push({
+                  x: x * BLOCK + BLOCK / 2,
+                  y: y * BLOCK + BLOCK / 2,
+                  vx: (Math.random() - 0.5) * 14,
+                  vy: (Math.random() - 0.5) * 14,
+                  rot: Math.random() * Math.PI * 2,
+                  vr: (Math.random() - 0.5) * 0.4,
+                  size: BLOCK * 0.7,
+                  alpha: 1,
+                  color: COLORS[arena[y][x]]
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    function updateDeathAnimation() {
+
+      deathProgress += 0.015;
+
+      ctx.fillStyle = "rgba(0,0,0,0.08)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      deathParticles.forEach(p => {
+
+        p.x += p.vx;
+        p.y += p.vy;
+
+        p.vy += 0.35;
+        p.vx *= 0.985;
+
+        p.rot += p.vr;
+
+        p.alpha -= 0.012;
+
+        ctx.save();
+
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+
+        ctx.globalAlpha = Math.max(0, p.alpha);
+
+        ctx.fillStyle = p.color;
+        ctx.fillRect(
+          -p.size / 2,
+          -p.size / 2,
+          p.size,
+          p.size
+        );
+
+        ctx.restore();
+        ctx.globalAlpha = 1;
+      });
+
+      deathParticles = deathParticles.filter(p => p.alpha > 0);
+
+      // dark fade
+      ctx.fillStyle = `rgba(0,0,0,${Math.min(deathProgress * 0.6, 0.6)})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // animated text
+      const scale = 1 + Math.sin(deathProgress * 8) * 0.05;
+
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.scale(scale, scale);
+
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#fff";
+      ctx.font = "72px 'Micro 5'";
+      ctx.fillText("GAME", 0, -25);
+      ctx.fillText("OVER", 0, 45);
+
+      ctx.restore();
+    }
+
+    function updateUI() {
+      scoreEl.textContent = score;
+      linesEl.textContent = linesCleared;
+      let elapsed = Math.floor((Date.now() - startTime) / 1000);
+      let m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+      let s = String(elapsed % 60).padStart(2, '0');
+      timeEl.textContent = `${m}:${s}`;
+      drawNextPiece();
+    }
+
+    let lastTime = 0;
+
+    function update(time = 0) {
+      const delta = time - lastTime;
+      lastTime = time;
+
+      ctx.save();
+
+      if (shake > 0) {
+        canvas.style.transform =
+          `translate(${(Math.random() - 0.5) * shake}px,
+                        ${(Math.random() - 0.5) * shake}px)`;
+
+        shake *= 0.92;
+      } else {
+        canvas.style.transform = "";
+      }
+
+      if (gameOver && deathAnimation) {
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        drawGrid();
+        drawMatrix(arena, { x: 0, y: 0 });
+
+        updateDeathAnimation();
+
+        requestAnimationFrame(update);
+        return;
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+
+      // easing for normal movement
+      player.easingPos.x += (player.pos.x - player.easingPos.x) * 0.2;
+      player.easingPos.y += (player.pos.y - player.easingPos.y) * 0.2;
+
+      if (player.hardDropTargetY === null) {
+        updateGhostY();
+      }
+      drawGhost();
+      drawMatrix(arena, { x: 0, y: 0 });
+      drawMatrix(player.matrix, player.easingPos);
+      updateParticles();
+      updateLineClear();
+      updateUI();
+
+      // animate hard drop
+      if (!clearingRows.length) {
+        animateHardDrop();
+      }
+
+      requestAnimationFrame(update);
+
+      ctx.restore();
+    }
+
+    document.addEventListener('keydown', e => {
+      if (gameOver) return;
+      if (e.key === 'ArrowLeft') playerMove(-1);
+      if (e.key === 'ArrowRight') playerMove(1);
+      if (e.key === 'ArrowDown') playerDrop();
+      if (e.key === 'ArrowUp') playerRotate(1);
+      if (e.key === ' ') hardDrop();
+    });
+
+    resetPlayer();
+    update();
+    setInterval(() => { if (!player.hardDropTargetY) playerDrop(); }, 800);
+  </script>
+</body>
+
+</html>
