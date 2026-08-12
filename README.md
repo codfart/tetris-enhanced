@@ -5,7 +5,7 @@
 > Also, this was pretty much ENTIRELY MADE WITH AI. I wanted to have a smooth Tetris website for playing on the school computer, but I instead made a big Tetris knock-off with AI
 
 <h1 align="center">How to use</h1>
-<h3 align="center"><a href="https://codfart.github.io/tetris-enhanced/tetris10.html">Launch latest Tetris Enhanced</a></h3>
+<h3 align="center"><a href="https://codfart.github.io/tetris-enhanced/tetris11.html">Launch latest Tetris Enhanced</a></h3>
 
 Download one of the `tetris0.html` files (higher number = later version) and open it. It will open a page in your web browser where you can play
 
