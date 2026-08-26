@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Ultra Pog Animated Tetris</title>
+  <base href="../_data/">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Micro+5&display=swap');
 
@@ -117,164 +118,13 @@
     let deathParticles = [];
     let shake = 0;
 
-    // =========================
-    // TGM3 RANDOMIZER
-    // =========================
+    const pieces = "TJLOSZI";
 
-    function* tgm3Randomizer() {
-      const pieces = ["I", "J", "L", "O", "S", "T", "Z"];
-
-      // 5 copies of each piece = 35-piece pool
-      const pool = [
-        ...pieces,
-        ...pieces,
-        ...pieces,
-        ...pieces,
-        ...pieces
-      ];
-
-      // TGM3 first-piece restriction:
-      // I, J, L or T only
-      const firstPiece =
-        ["I", "J", "L", "T"][Math.floor(Math.random() * 4)];
-
-      yield firstPiece;
-
-      // Initial history
-      const history = ["S", "Z", "S", firstPiece];
-
-      // Piece order, oldest -> newest.
-      // order[0] is the most droughted piece.
-      const order = [];
-
-      while (true) {
-        let piece;
-        let index;
-
-        // 6 rolls
-        for (let roll = 0; roll < 6; roll++) {
-          index = Math.floor(Math.random() * 35);
-          piece = pool[index];
-
-          // Accept if the piece isn't in history,
-          // or if this is the final roll.
-          if (!history.includes(piece) || roll === 5) {
-            break;
-          }
-
-          // Replace rejected piece with the most droughted piece.
-          if (order.length) {
-            pool[index] = order[0];
-          }
-        }
-
-        // Remove the selected piece from the drought order
-        // if it already exists.
-        const oldIndex = order.indexOf(piece);
-
-        if (oldIndex !== -1) {
-          order.splice(oldIndex, 1);
-        }
-
-        // It has now been dealt, so put it at the newest end.
-        order.push(piece);
-
-        // Replace its pool slot with the most droughted piece.
-        pool[index] = order[0];
-
-        // Update history
-        history.shift();
-        history[3] = piece;
-
-        yield piece;
-      }
-    }
-
-
-    // create the generator once
-    const tgm3 = tgm3Randomizer();
-
-
-    // get the next actual TGM3 piece
     function randomPiece() {
-      return createPiece(tgm3.next().value);
+      return createPiece(pieces[Math.floor(Math.random() * pieces.length)]);
     }
 
-
-    // generate first "next" piece
     let nextPiece = randomPiece();
-
-    // =========================
-    // SOUND EFFECTS
-    // =========================
-
-    const SFX_PATH = "./sfx/";
-
-    const SFX = {
-      drop: [
-        "drop.wav"
-      ],
-
-      place: [
-        "place.wav"
-      ],
-
-      line0: [
-        "line0.wav"
-      ],
-
-      line1: [
-        "line1.wav"
-      ],
-
-      line2: [
-        "line2.wav"
-      ],
-
-      line3: [
-        "line3.wav"
-      ],
-
-      line4: [
-        "line4.wav"
-      ],
-
-      explode: [
-        "explode1.wav",
-        "explode2.wav",
-        "explode3.wav",
-        "explode4.wav"
-      ],
-
-      gameOver: [
-        "game_over.wav"
-      ]
-    };
-
-    const lastSFX = {};
-
-    function playSFX(type, volume = 1) {
-      const sounds = SFX[type];
-
-      if (!sounds || sounds.length === 0) return;
-
-      let index;
-
-      // avoid repeating the exact same sound when there are multiple choices
-      do {
-        index = Math.floor(Math.random() * sounds.length);
-      } while (sounds.length > 1 && index === lastSFX[type]);
-
-      lastSFX[type] = index;
-
-      const audio = new Audio(SFX_PATH + sounds[index]);
-
-      audio.volume = Math.max(0, Math.min(1, volume));
-
-      audio.play().catch(() => {
-        // browser may block audio until the user interacts with the page
-      });
-    }
 
     let nextAnim = 1;
     let nextOutAnim = 0;
@@ -649,8 +499,6 @@
 
         const count = clearingRows.length;
 
-        playSFX(`line${count}`, 0.8);
-
         linesCleared += count;
 
         // classic tetris scoring
@@ -671,7 +519,6 @@
         merge(arena, player);
         sweep();
         if (!clearingRows.length) {
-          playSFX("place", 0.65);
           resetPlayer();
         }
       }
@@ -683,7 +530,6 @@
       updateGhostY();
       player.hardDropTargetY = player.ghostY;
       player.easingGhostY = player.ghostY;
-      playSFX("drop", 0.7);
     }
 
     function animateHardDrop() {
@@ -695,7 +541,6 @@
         merge(arena, player);
         sweep();
         if (!clearingRows.length) {
-          playSFX("place", 0.65);
           resetPlayer();
         }
         player.hardDropTargetY = null;
@@ -830,9 +675,6 @@
       if (collide(arena, player)) {
         gameOver = true;
         deathAnimation = true;
-
-        playSFX("gameOver", 0.9);
-        playSFX("explode", 0.8);
 
         // explode every existing block
         shake = 20;

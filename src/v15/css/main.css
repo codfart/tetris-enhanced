@@ -1,0 +1,71 @@
+/*
+General CSS stuff. This file contains:
+- body
+- Favicon (bottom-right)
+- Update box
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Micro+5&display=swap');
+
+/*
+-- The thing that holds the entire website together: <body>
+*/
+body {
+    margin: 0;
+    background: #10141a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+    font-family: 'Micro 5', sans-serif;
+}
+
+/*
+-- Favicon (bottom-right)
+*/
+.favicon {
+    position: fixed;
+    z-index: 100;
+    opacity: .5;
+    width: 48px;
+    bottom: 16px;
+    right: 16px;
+    cursor: pointer;
+    transition: .1s cubic-bezier(0, 0.5, 0.5, 1);
+
+    &:hover {
+        opacity: 1;
+        width: 52px;
+    }
+}
+
+/*
+-- Update box
+*/
+.update {
+    position: fixed;
+    margin: 0 0 550px 600px;
+    background-color: rgba(255, 100, 0, 0.5);
+    outline: 2px dashed rgba(255, 100, 0);
+    padding: 4px 20px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .5);
+    transition: .1s cubic-bezier(0, 0.5, 0.5, 1);
+
+    &.disabled {
+        display: none;
+    }
+
+    &:hover {
+        transform: scale(1.1);
+    }
+
+    & p {
+        user-select: none;
+        margin: 0;
+        color: white;
+        font-size: 24px;
+    }
+}

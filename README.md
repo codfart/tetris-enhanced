@@ -1,53 +1,56 @@
 <p align="center"><img src="https://raw.githubusercontent.com/codfart/tetris-enhanced/refs/heads/main/img/banner.png" style="height: 12rem;" alt="Tetris Enhanced"></p>
-<h3 align="center"><a href="https://codfart.github.io/tetris-enhanced/tetris14.html">Play Tetris Enhanced V14</a></h3>
+<h3 align="center"><a href="https://codfart.github.io/tetris-enhanced/src/v15/">Play Tetris Enhanced v15</a></h3>
 
 ---
 
 > [!IMPORTANT]
-> This project was almost __ENTIRELY MADE WITH AI__! This project and I are in no way affiliated with Tetris Holding LLC. This is just a fan game which "I" created for fun.
+> Most of the original logic is __ENTIRELY MADE WITH AI__! This project and I are in no way affiliated with Tetris Holding LLC. This is just a fan game which "I" created for fun.
 
 <p align="center"><img height="500" alt="Screenshot of Tetris Enhanced" src="https://github.com/user-attachments/assets/ff8d0f13-3302-4d87-a769-19ea1640a8c7" /></p>
 
 # 📃 Planned features
 
-- Add drop shadows to the blocks
 - Split the one file into multiple files
+- Allow ESC to pause/resume
+- Allow ESC to exit the options screen
+- Add drop shadows to the blocks
+- Animate the pause screen (fade in/out?)
+- Sounds for interacting with UI elements
 - Change options screen to have tabs
+- MUSIC!! :D
 - Dev-mode config screen
 - Animations for restarting the game
 - Animations for piece spinning
-- Animate the pause screen (fade in/out?)
-- Allow ESC to pause/resume
-- Allow ESC to exit the options screen
 - Add an AI that can play automatically
-- Sounds for interacting with UI elements
 
 # 📜 Changelog
 
+**V15** - HEAVY refactoring of the file system (Instead of 1 super long file, there's 15 shorter files). No changes to the actual game, but way easier to code now
+
 **V14** - Added an options menu, animations to block spawning, score animation popup
 
-**V13** - ?
+**V13** - Change some EventListeners to &lt;a&gt; tags, Fixed animations on high refresh rates, made the speed change animation better, fixed pausing when pressing space after clicking the pause button
 
-**v12** - Fixed animations on high refresh rates, made the speed change animation better, fixed pausing when pressing space after clicking the pause button
+**v12** - Added an update checker, a link to GitHub repo. Changed the page title, created a page icon
 
-**v11** - Changed the page title, created a page icon, added a link to the GitHub repository on the bottom right, added an update checker
+**v11** - Added sounds for a Tetris and LEVEL increase
 
-**v10** - ?
+**v10** - Added HIGH SCORE, piece flashing on place
 
-**v9** - ?
+**v9** - Added the ability to PAUSE, restart after a GAME OVER, and activate Dev-mode, LEVEL system
 
 **v8** - ?
 
-**v7** - ?
+**v7** - Added sound effects
 
-**v6** - ?
+**v6** - Added NEXT UP panel animations and block textures, touched up CSS styles, centered NEXT UP piece
 
-**v5** - ?
+**v5** - Added NEXT UP panel. Fixed ghost blocks rising when hard-dropping pieces
 
-**v4** - ?
+**v4** - Added block textures, game over screen, screen shake
 
 **v3** - ?
 
 **v2** - ?
 
-**v1** - ?
+**v1** - Initial concept

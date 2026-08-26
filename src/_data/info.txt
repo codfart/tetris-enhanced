@@ -1,0 +1,2 @@
+Basically this folder is for versions before V15.
+It contains stuff that would usually be in the root directory, shared by all the different versions
