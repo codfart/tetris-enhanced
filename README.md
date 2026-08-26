@@ -16,6 +16,7 @@
 - Dev-mode config screen
 - Animations for restarting the game
 - Animations for piece spinning
+- Animate the pause screen (fade in/out?)
 - Allow ESC to pause/resume
 - Allow ESC to exit the options screen
 - Add an AI that can play automatically
