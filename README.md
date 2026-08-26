@@ -1,17 +1,27 @@
-<h1 align="center">Tetris Enhanced</h1>
+<p align="center"><img src="https://raw.githubusercontent.com/codfart/tetris-enhanced/refs/heads/main/img/banner.png" style="height: 12rem;" alt="Tetris Enhanced"></p>
+<h3 align="center"><a href="https://codfart.github.io/tetris-enhanced/tetris14.html">Play Tetris Enhanced V14</a></h3>
+
+---
 
 > [!IMPORTANT]
-> I, and this project, are in no way affiliated with Tetris Holding LLC. This is just a fan game which I created for fun.
-> Also, this was pretty much ENTIRELY MADE WITH AI. I wanted to have a smooth Tetris website for playing on the school computer, but I instead made a big Tetris knock-off with AI
+> This project was almost __ENTIRELY MADE WITH AI__! This project and I are in no way affiliated with Tetris Holding LLC. This is just a fan game which "I" created for fun.
 
-<h1 align="center">How to use</h1>
-<h3 align="center"><a href="https://codfart.github.io/tetris-enhanced/tetris14.html">Launch latest Tetris Enhanced</a></h3>
+<p align="center"><img height="500" alt="Screenshot of Tetris Enhanced" src="https://github.com/user-attachments/assets/ff8d0f13-3302-4d87-a769-19ea1640a8c7" /></p>
 
-Download one of the `tetris0.html` files (higher number = later version) and open it. It will open a page in your web browser where you can play
+# 📃 Planned features
 
-<img width="847" height="687" alt="image" src="https://github.com/user-attachments/assets/b0573bc5-8d96-4f8c-9a96-42aac4484a9d" />
+- Add drop shadows to the blocks
+- Split the one file into multiple files
+- Change options screen to have tabs
+- Dev-mode config screen
+- Animations for restarting the game
+- Animations for piece spinning
+- Allow ESC to pause/resume
+- Allow ESC to exit the options screen
+- Add an AI that can play automatically
+- Sounds for interacting with UI elements
 
-<h1 align="center">Changelog</h1>
+# 📜 Changelog
 
 **V14** - Added an options menu, animations to block spawning, score animation popup
 
