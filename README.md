@@ -1,4 +1,4 @@
-<p align="center"><img src="https://raw.githubusercontent.com/codfart/tetris-enhanced/refs/heads/main/img/banner.png" style="height: 12rem;" alt="Tetris Enhanced"></p>
+<p align="center"><img src="https://github.com/codfart/tetris-enhanced/blob/main/src/_data/img/banner.png?raw=true" style="height: 12rem;" alt="Tetris Enhanced"></p>
 <h3 align="center"><a href="https://codfart.github.io/tetris-enhanced/src/v15/">Play Tetris Enhanced v15</a></h3>
 
 ---
