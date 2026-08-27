@@ -4,7 +4,7 @@
 ---
 
 > [!IMPORTANT]
-> Most of the original logic is __ENTIRELY MADE WITH AI__! This project and I are in no way affiliated with Tetris Holding LLC. This is just a fan game which "I" created for fun.
+> Most of the original logic was __ENTIRELY MADE WITH AI__! This project and I are in no way affiliated with Tetris Holding LLC. This is just a fan game which I created for fun.
 
 <p align="center"><img height="500" alt="Screenshot of Tetris Enhanced" src="https://github.com/user-attachments/assets/ff8d0f13-3302-4d87-a769-19ea1640a8c7" /></p>
 
@@ -21,11 +21,14 @@
 - Dev-mode config screen
 - Animations for restarting the game
 - Animations for piece spinning
+
+- Themes
+- Sound packs
 - Add an AI that can play automatically
 
 # 📜 Changelog
 
-**V15** - HEAVY refactoring of the file system (Instead of 1 super long file, there's 15 shorter files). No changes to the actual game, but way easier to code now
+**V15** - HEAVY refactoring of the file system (Instead of 1 super long file, there's a bunch of shorter files). No changes to the actual game, but way easier to code now
 
 **V14** - Added an options menu, animations to block spawning, score animation popup
 
@@ -39,7 +42,7 @@
 
 **v9** - Added the ability to PAUSE, restart after a GAME OVER, and activate Dev-mode, LEVEL system
 
-**v8** - ?
+**v8** - Added the TGM3 randomiser (better piece randomisation)
 
 **v7** - Added sound effects
 
