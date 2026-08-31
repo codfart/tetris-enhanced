@@ -10,7 +10,7 @@
 
 # 📃 Planned features
 
-- Split the one file into multiple files
+- Code optimisation
 - Allow ESC to pause/resume
 - Allow ESC to exit the options screen
 - Add drop shadows to the blocks
@@ -21,6 +21,12 @@
 - Dev-mode config screen
 - Animations for restarting the game
 - Animations for piece spinning
+- Game modes
+  - Classic: The classic Tetris game, but enhanced!
+  - Dual-screen: Two sets of the game at once
+  - Wide: Just extend the width of the game
+  - No rotation: No piece rotations
+  - Spinner: Spin the plus-shaped board every time a piece drops
 
 - Themes
 - Sound packs
